@@ -1,109 +1,92 @@
-# Simardik — Archive Management (Filament)
+# Simardik — Sistem Manajemen Arsip (Ringkasan Sistem)
 
-This repository contains a Laravel application with a Filament admin to manage school documents (arsip). Recent changes added a robust file storage and retention system to prevent duplication, ensure data consistency, and protect private files.
-
----
-
-## 🔧 Key Concepts & Design Decisions
-
-- **File metadata is stored in the database** (on the `documents` table) — `file_path`, `disk`, `file_hash`, `mime_type`, `file_size`, `expires_at`. This keeps the storage and application data consistent.
-- **Physical file deduplication (mandatory)**: files are hashed (SHA-256) on create/update. If an uploaded file matches an existing file hash, the uploaded duplicate is removed and the existing file path is reused. This prevents storage bloat.
-- **Private storage only**: uploads are stored on the private `local` disk (configured to `storage/app/private` in `config/filesystems.php`). Files are not served directly by the web server.
-- **Secure delivery**: downloads are served via an authenticated route (`/admin/documents/{document}/download`) that checks permissions (`arsip lihat`) and streams the file.
-- **Retention & Pruning**: Documents may have an optional `expires_at` date. The command `php artisan documents:prune-expired` will remove or clear files for expired documents and is scheduled to run daily in `App\Console\Kernel`.
+Dokumen ini menjelaskan arsitektur dan perilaku utama sistem penyimpanan arsip pada aplikasi.
+Penekanan utama: **konsistensi penyimpanan**, **pencegahan duplikasi fisik**, **akses aman** dan **retensi**.
 
 ---
 
-## ✅ Files & Changes (summary)
+## 🎯 Tujuan Sistem
 
-- Migrations
-  - `src/database/migrations/2026_01_03_145205_create_documents_table.php` — **added** file metadata columns (`disk`, `file_hash`, `mime_type`, `file_size`, `expires_at`).
-
-- Models / Observers
-  - `src/app/Models/Document.php` — **fillable & casts** updated for file metadata.
-  - `src/app/Observers/DocumentObserver.php` — **new**: computes file hash/mime/size on create/update, performs deduplication, and deletes orphaned physical files when a document is deleted.
-
-- Controllers & Routes
-  - `src/app/Http/Controllers/DocumentDownloadController.php` — **new** secure streaming download controller.
-  - `src/routes/web.php` — **added** auth-protected route `documents.download` for secure downloads.
-
-- Filament
-  - `src/app/Filament/Admin/Resources/DocumentResource.php` — **updated** FileUpload to use `disk('local')` and **added** `expires_at` field and a **Download** action in the table.
-
-- Commands / Scheduling
-  - `src/Console/Commands/PruneExpiredDocuments.php` — **new**: prune expired documents and clear files.
-  - `src/app/Console/Kernel.php` — register and schedule the prune command daily.
-
-- Seeders
-  - `src/database/seeders/SampleFilesSeeder.php` — sample placeholder files are placed on the `local` disk.
-  - `src/database/seeders/DocumentSeeder.php` / `MoreDocumentSeeder.php` — ensure seeded documents use `disk = local`.
-
-Notes: I considered a separate `file_assets` table for shared assets with a `ref_count`, but you asked for file metadata directly on `documents`, so I implemented it there. If you later want to move to a `file_assets` table, it is straightforward to migrate.
+- Menyimpan file arsip dengan cara yang konsisten dan dapat dibuktikan (file path disimpan di DB).
+- Mencegah duplikasi file yang menyebabkan penggunaan storage berlebih.
+- Menghindari akses publik langsung ke file; hanya disajikan melalui route yang aman.
+- Mengatur retensi/masa kadaluarsa arsip sehingga file yang sudah tidak perlu dapat di-prune secara terjadwal.
 
 ---
 
-## ⚙️ Setup & Commands
+## 🧩 Komponen Utama & Alur Kerja
 
-1. Install deps and environment
+1. Upload (Filament)
+  - Form upload di `DocumentResource` menyimpan file ke disk private (`local`) dengan direktori `arsip-dokumen`.
+  - Setelah file ditulis ke disk, Observer akan menghitung **SHA-256** file tersebut.
 
-   - composer install
-   - copy `.env.example` to `.env` and configure DB
+2. Deduplication (Observer)
+  - Observer (`App\Observers\DocumentObserver`) menghitung hash, ukuran, dan MIME.
+  - Jika ditemukan dokumen lain dengan hash yang sama, file yang baru di-upload akan dihapus dan record baru akan menggunakan **file_path** yang sudah ada.
+  - Metadata yang disimpan di tabel `documents`: `file_path`, `disk`, `file_hash`, `mime_type`, `file_size`, `expires_at`.
 
-2. Storage & DB
+3. Download (Secure)
+  - File tidak diakses langsung dari storage; download melalui controller `DocumentDownloadController` pada route `GET /admin/documents/{document}/download`.
+  - Akses hanya untuk user yang terautentikasi dengan permission `arsip lihat`.
 
-   - (Optional) create storage symlink for public disk: `php artisan storage:link`
-   - Run migrations and seeders:
-
-     ```bash
-     php artisan migrate:fresh --seed
-     ```
-
-3. Filament admin
-
-   - Login using seeded users (see `UserSeeder`) like `admin@admin.com` / `password`.
-   - Upload documents under the **Dokumen** resource — uploads go to `storage/app/private/arsip-dokumen` (private `local` disk).
-
-4. Downloading a document (secure)
-
-   - In Filament, click the **Download** action. The route `GET /admin/documents/{document}/download` streams the file only for authenticated users with `arsip lihat` permission.
-
-5. Pruning expired documents
-
-   - Run manually: `php artisan documents:prune-expired`.
-   - This is scheduled to run daily via the application scheduler if your server runs `php artisan schedule:run`.
+4. Retensi & Pruning
+  - Jika `expires_at` diisi, file akan dianggap kadaluarsa setelah tanggal tersebut.
+  - Command artisan `php artisan documents:prune-expired` membersihkan file kadaluarsa dan metadata yang terkait.
+  - Command ini dijadwalkan berjalan harian di `App\Console\Kernel`.
 
 ---
 
-## 🔍 How deduplication works (developer notes)
+## 📁 Struktur Database (kolom penting pada `documents`)
 
-1. On create/update, the observer locates the saved file on the configured disk and computes SHA-256.
-2. If a different `Document` already has the same `file_hash`, the new uploaded file is deleted from the disk and the new `Document` reuses the existing `file_path` and metadata.
-3. `deleted` observer behavior: when a `Document` is deleted, and no other document references the same `file_hash`, the physical file is removed.
+- `file_path` (string): lokasi relatif file pada disk.
+- `disk` (string): nama disk di `config/filesystems.php` (default: `local`).
+- `file_hash` (string): SHA-256 dari isi file.
+- `mime_type` (string|null): tipe MIME file.
+- `file_size` (bigint|null): ukuran dalam bytes.
+- `expires_at` (timestamp|null): tanggal kadaluarsa file (opsional).
 
-Important: the deduplication strategy assumes uploads are saved first by Filament and are accessible via `Storage::disk($disk)->path($path)` during the observer. Filesystems such as S3 may require different handling (stream-based hashing) or a separate `file_assets` ref-count table.
-
----
-
-## 🔐 Security & Consistency Notes
-
-- Files are not publicly accessible; they are served only via the authorized download route.
-- Database-level foreign key and column constraints should be observed when migrating live data — review your backups before running `migrate:fresh` in production.
-- Consider auditing (activity log) of file operations for compliance in production.
+Semua metadata ini membantu menjaga konsistensi dan memudahkan operasi deduplikasi serta retensi.
 
 ---
 
-## ✅ Next steps & optional improvements
+## ✅ Perintah Penting
 
-- Add a `file_assets` table (with `ref_count`) for stronger referential integrity and to avoid race conditions in dedup workflow.
-- Add unit/integration tests for deduplication, download permissions, and pruning.
-- Add an admin UI to view file hashes and find duplicates manually.
-- Add virus/malware scanning for uploaded PDFs if you expose the system to public uploads.
+- Jalankan migrasi dan seeder (development):
+
+```
+php artisan migrate:fresh --seed
+```
+
+- Buat symlink storage (opsional untuk disk `public`):
+
+```
+php artisan storage:link
+```
+
+- Jalankan prune manual:
+
+```
+php artisan documents:prune-expired
+```
 
 ---
 
-If you want, I can now:
-- Run `php artisan migrate:fresh --seed` in this environment and validate the Filament flows (requires confirmation), or
-- Implement `file_assets` and a migration to move to that model, or
-- Add tests and logs for these flows.
+## 🔐 Keamanan & Konsistensi
 
-Tell me which next step you want and I'll proceed. ✅
+- Simpan file hanya pada disk private (tidak dapat diakses publik).
+- Gunakan route yang mengautentikasi dan memeriksa permission sebelum streaming file.
+- Backup database sebelum menjalankan perubahan struktural pada tabel (mis. `migrate:fresh`).
+
+---
+
+## 💡 Rekomendasi & Peningkatan Selanjutnya
+
+- Jika ingin meningkatkan skala dan mencegah race condition: pindah ke model `file_assets` terpisah yang menyimpan `ref_count` per file dan hubungan many-to-many dengan dokumen.
+- Tambahkan logging/audit pada upload/hapus/reuse file untuk kepatuhan.
+- Tambahkan test otomatis (unit/integration) untuk deduplication, download permission, dan prune.
+- Untuk penyimpanan cloud (S3), adaptasi hashing agar berbasis stream, dan pertimbangkan lifecycle policies di bucket.
+
+---
+
+Jika Anda ingin, saya dapat: menjalankan migrasi & seed di environment ini, atau menerapkan model `file_assets` sebagai langkah selanjutnya.
+
