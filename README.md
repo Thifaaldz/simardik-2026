@@ -90,3 +90,30 @@ php artisan documents:prune-expired
 
 Jika Anda ingin, saya dapat: menjalankan migrasi & seed di environment ini, atau menerapkan model `file_assets` sebagai langkah selanjutnya.
 
+---
+
+## 📣 Penjelasan Singkat untuk Pengguna Non-Teknis
+
+Bagian ini menjelaskan secara sederhana apa yang dilakukan sistem dan mengapa ini membantu menghemat penyimpanan.
+
+- **Intinya apa?**
+  - Saat Anda mengunggah dokumen (mis. PDF), sistem menyimpan satu salinan fisik file dan menyimpan informasi tentang file itu di database.
+
+- **Kenapa ini hemat penyimpanan?**
+  - Jika ada dua atau lebih file yang isinya sama, sistem **tidak menyimpan salinan ganda**. Hanya satu file yang disimpan, sedangkan dokumen-dokumen lain hanya menunjuk ke file yang sudah ada.
+  - Dengan begitu, ruang penyimpanan tidak terpakai dua kali untuk file yang sama.
+
+- **Bagaimana kalau saya mengunggah file yang sudah ada?**
+  - Sistem otomatis mendeteksi kesamaan (menggunakan 'sidik jari' file). File yang baru diunggah akan dibuang dan dokumen baru akan memakai salinan yang sudah ada.
+
+- **Apakah file bisa diakses langsung di folder server?**
+  - Tidak. File disimpan di area privat dan hanya bisa diunduh lewat halaman admin yang aman. Ini mengurangi risiko kebocoran data.
+
+- **Bagaimana jika file sudah tidak diperlukan lagi?**
+  - Anda bisa set tanggal kadaluarsa (expire) pada dokumen. Sistem akan membersihkan file yang sudah kadaluarsa secara berkala sehingga tidak menumpuk.
+
+- **Manfaat praktis untuk sekolah/organisasi:**
+  - Menghemat biaya penyimpanan, memudahkan pencarian, dan meningkatkan keamanan data.
+
+Jika Anda mau, saya bisa menyediakan versi cetak singkat (instruksi 1 halaman) yang bisa dibagikan ke staf agar mereka mudah memahami proses ini.
+
