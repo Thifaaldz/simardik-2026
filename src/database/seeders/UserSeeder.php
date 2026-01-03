@@ -25,5 +25,24 @@ class UserSeeder extends Seeder
             ['name' => 'User Account', 'password' => Hash::make('password')]
         );
         $user->assignRole('user');
+
+        // Additional convenience accounts for testing
+        $operator = User::firstOrCreate(
+            ['email' => 'operator@simardik.local'],
+            ['name' => 'Operator', 'password' => Hash::make('password')]
+        );
+        $operator->assignRole('operator');
+
+        $tu = User::firstOrCreate(
+            ['email' => 'tu@simardik.local'],
+            ['name' => 'Tata Usaha', 'password' => Hash::make('password')]
+        );
+        $tu->assignRole('tata_usaha');
+
+        $kepala = User::firstOrCreate(
+            ['email' => 'kepala@simardik.local'],
+            ['name' => 'Kepala Sekolah', 'password' => Hash::make('password')]
+        );
+        $kepala->assignRole('kepala_sekolah');
     }
 }
