@@ -21,8 +21,8 @@ class SampleFilesSeeder extends Seeder
         ];
 
         foreach ($files as $path => $contents) {
-            if (! Storage::disk('public')->exists($path)) {
-                Storage::disk('public')->put($path, $contents);
+            if (! Storage::disk('local')->exists($path)) {
+                Storage::disk('local')->put($path, $contents);
             }
         }
     }

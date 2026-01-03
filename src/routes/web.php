@@ -21,3 +21,7 @@ Livewire::setScriptRoute(function ($handle) {
 Route::get('/', function () {
     return view('welcome');
 });
+
+Route::middleware(['auth'])->group(function () {
+    Route::get('/admin/documents/{document}/download', [\App\Http\Controllers\DocumentDownloadController::class, '__invoke'])->name('documents.download');
+});

@@ -77,8 +77,13 @@ class DocumentResource extends Resource
                     Forms\Components\DatePicker::make('tanggal_dokumen')
                         ->required(),
 
+                    Forms\Components\DatePicker::make('expires_at')
+                        ->label('Tanggal Kadaluarsa (Opsional)')
+                        ->helperText('Jika diisi, file akan di-prune ketika melewati tanggal ini.'),
+
                     Forms\Components\FileUpload::make('file_path')
                         ->directory('arsip-dokumen')
+                        ->disk('local')
                         ->acceptedFileTypes(['application/pdf'])
                         ->required(),
 
@@ -109,6 +114,11 @@ class DocumentResource extends Resource
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),
+                Tables\Actions\Action::make('download')
+                    ->label('Download')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->url(fn (Document $record): string => route('documents.download', $record))
+                    ->visible(fn (Document $record): bool => (bool) $record->file_path),
                 Tables\Actions\EditAction::make(),
             ])
             ->bulkActions([

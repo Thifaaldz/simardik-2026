@@ -51,6 +51,7 @@ class MoreDocumentSeeder extends Seeder
                     'status_dokumen' => 'valid',
                     'tingkat_kerahasiaan' => 'biasa',
                     'file_path' => 'arsip-dokumen/sample-1.pdf',
+                    'disk' => 'local',
                     'created_by' => $user?->id,
                 ]);
 

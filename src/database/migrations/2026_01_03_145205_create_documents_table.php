@@ -26,6 +26,11 @@ return new class extends Migration
                 $table->string('status_dokumen');
                 $table->string('tingkat_kerahasiaan');
                 $table->string('file_path');
+                $table->string('disk')->default('local');
+                $table->string('file_hash', 64)->nullable()->index();
+                $table->string('mime_type')->nullable();
+                $table->unsignedBigInteger('file_size')->nullable();
+                $table->timestamp('expires_at')->nullable();
                 $table->foreignId('created_by')->constrained('users');
                 $table->timestamps();
         });

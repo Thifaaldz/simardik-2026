@@ -20,7 +20,16 @@ class Document extends Model
         'status_dokumen',
         'tingkat_kerahasiaan',
         'file_path',
+        'disk',
+        'file_hash',
+        'mime_type',
+        'file_size',
+        'expires_at',
         'created_by',
+    ];
+
+    protected $casts = [
+        'expires_at' => 'datetime',
     ];
 
     public function kategori()

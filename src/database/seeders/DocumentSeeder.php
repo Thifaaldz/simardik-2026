@@ -47,6 +47,7 @@ class DocumentSeeder extends Seeder
             'status_dokumen' => 'valid',
             'tingkat_kerahasiaan' => 'biasa',
             'file_path' => 'arsip-dokumen/example.pdf',
+            'disk' => 'local',
             'created_by' => $user->id,
         ]);
     }
