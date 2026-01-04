@@ -49,6 +49,13 @@ class DocumentObserver
                 $size = filesize($path);
                 $mime = mime_content_type($path) ?: null;
 
+                // Validate MIME type is a valid PDF type
+                $validPdfMimeTypes = ['application/pdf', 'application/x-pdf'];
+                if ($mime && ! in_array($mime, $validPdfMimeTypes)) {
+                    // Invalid file type - do not process
+                    return;
+                }
+
                 // deduplicate: if another document already has the same hash, reuse its path and delete the current file
                 $existing = Document::where('file_hash', $hash)->where('file_path', '!=', $document->file_path)->first();
                 if ($existing) {

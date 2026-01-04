@@ -84,7 +84,7 @@ class Arsip extends Page implements HasTable
     {
         return [
             Tables\Columns\TextColumn::make('kode_dokumen')->searchable(),
-            Tables\Columns\TextColumn::make('judul'),
+            Tables\Columns\TextColumn::make('nama_dokumen')->label('Judul')->searchable(),
             Tables\Columns\TextColumn::make('subKategori.nama_sub_kategori')->label('Jenis'),
             Tables\Columns\TextColumn::make('student.nama')->label('Siswa'),
             Tables\Columns\TextColumn::make('pegawai.nama')->label('Pegawai'),
@@ -134,7 +134,23 @@ class Arsip extends Page implements HasTable
 
                     Forms\Components\TextInput::make('judul')->required(),
                     Forms\Components\DatePicker::make('tanggal_dokumen')->required(),
-                    Forms\Components\FileUpload::make('file_path')->directory('arsip-dokumen')->acceptedFileTypes(['application/pdf'])->required(),
+                    Forms\Components\FileUpload::make('file_path')
+                    ->label('File Dokumen (PDF)')
+                    ->disk('local')
+                    ->directory('arsip-dokumen')
+                    ->acceptedFileTypes([
+                        'application/pdf',
+                        'application/x-pdf',
+                        'application/octet-stream',
+                    ])
+                    ->rules([
+                        'required',
+                        'file',
+                        'mimes:pdf',
+                        'max:20480', // 20MB
+                    ])
+                    ->required()
+                ,
                     Forms\Components\Textarea::make('keterangan')->columnSpanFull(),
                 ])
                 ->action(function (array $data) {

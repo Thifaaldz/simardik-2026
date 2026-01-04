@@ -14,14 +14,14 @@ return new class extends Migration
         Schema::create('documents', function (Blueprint $table) {
                 $table->id();
                 $table->string('kode_dokumen')->unique();
-                $table->string('nama_dokumen');
+                $table->string('nama_dokumen')->nullable();
                 $table->foreignId('kategori_dokumen_id')->constrained('kategori_dokumens');
                 $table->foreignId('sub_kategori_dokumen_id')->constrained('sub_kategori_dokumens');
                 $table->foreignId('unit_kerja_id')->constrained();
                 $table->foreignId('student_id')->nullable()->constrained();
                 $table->foreignId('pegawai_id')->nullable()->constrained('pegawais');
                 $table->foreignId('pkl_id')->nullable()->constrained('pkls');
-                $table->integer('tahun');
+                $table->string('tahun');
                 $table->date('tanggal_dokumen');
                 $table->string('status_dokumen');
                 $table->string('tingkat_kerahasiaan');
@@ -44,3 +44,5 @@ return new class extends Migration
         Schema::dropIfExists('documents');
     }
 };
+
+

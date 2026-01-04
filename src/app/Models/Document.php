@@ -26,6 +26,7 @@ class Document extends Model
         'file_size',
         'expires_at',
         'created_by',
+        'keterangan',
     ];
 
     protected $casts = [
@@ -60,11 +61,6 @@ class Document extends Model
     public function pkl()
     {
         return $this->belongsTo(Pkl::class);
-    }
-
-    public function metadata()
-    {
-        return $this->hasMany(DocumentMetadata::class);
     }
 
     public function creator()
