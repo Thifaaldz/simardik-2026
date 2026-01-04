@@ -5,16 +5,16 @@ namespace App\Filament\Admin\Pages;
 use App\Models\Document;
 use App\Models\KategoriDokumen;
 use App\Models\SubKategoriDokumen;
-use App\Models\TahunAjaran;
 use App\Filament\Admin\Clusters\ArsipCluster;
+use App\Filament\Admin\Resources\DocumentResource;
 use Filament\Navigation\NavigationGroup;
 use Filament\Navigation\NavigationItem;
 use Filament\Pages\Page;
 use Filament\Tables;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Concerns\InteractsWithTable;
-use Filament\Forms;
 use Filament\Notifications\Notification;
+use Filament\Forms;
 
 class Arsip extends Page implements HasTable
 {
@@ -30,140 +30,177 @@ class Arsip extends Page implements HasTable
     public ?int $selectedKategori = null;
     public ?int $selectedSubKategori = null;
 
+    /* =====================================================
+     *  MOUNT
+     * ===================================================== */
     public function mount(): void
     {
-        $this->selectedKategori = request()->query('selectedKategori') ? (int) request()->query('selectedKategori') : null;
-        $this->selectedSubKategori = request()->query('selectedSubKategori') ? (int) request()->query('selectedSubKategori') : null;
+        $this->selectedKategori = request('selectedKategori');
+        $this->selectedSubKategori = request('selectedSubKategori');
     }
 
+    /* =====================================================
+     *  SUB NAVIGATION
+     * ===================================================== */
     public function getSubNavigation(): array
     {
-        $groups = [];
-
-        $kategoris = KategoriDokumen::with('subKategori')->get();
-
-        foreach ($kategoris as $kategori) {
-            $items = [];
-            foreach ($kategori->subKategori as $sub) {
-                $items[] = NavigationItem::make($sub->nama_sub_kategori)
-                    ->url(fn () => self::getUrl(['selectedKategori' => $kategori->id, 'selectedSubKategori' => $sub->id]));
-            }
-
-            $groups[] = NavigationGroup::make($kategori->nama_kategori)->items($items);
-        }
-
-        return $groups;
+        return KategoriDokumen::with('subKategori')->get()
+            ->map(function ($kategori) {
+                return NavigationGroup::make($kategori->nama_kategori)
+                    ->items(
+                        $kategori->subKategori->map(fn ($sub) =>
+                            NavigationItem::make($sub->nama_sub_kategori)
+                                ->url(fn () => self::getUrl([
+                                    'selectedKategori'    => $kategori->id,
+                                    'selectedSubKategori' => $sub->id,
+                                ]))
+                        )->toArray()
+                    );
+            })
+            ->toArray();
     }
 
-    public function selectKategori(?int $id)
-    {
-        $this->selectedKategori = $id;
-        $this->selectedSubKategori = null;
-        $this->resetTablePage();
-    }
-
-    public function selectSubKategori(?int $id)
-    {
-        $this->selectedSubKategori = $id;
-        $this->resetTablePage();
-    }
-
-    public function getKategoriList()
-    {
-        return KategoriDokumen::with('subKategori')->get();
-    }
-
+    /* =====================================================
+     *  QUERY
+     * ===================================================== */
     protected function getTableQuery()
     {
         return Document::query()
-            ->when($this->selectedKategori, fn ($q) => $q->whereHas('subKategori', fn ($q2) => $q2->where('kategori_dokumen_id', $this->selectedKategori)))
-            ->when($this->selectedSubKategori, fn ($q) => $q->where('sub_kategori_dokumen_id', $this->selectedSubKategori));
+            ->when(
+                $this->selectedKategori,
+                fn ($q) => $q->whereHas(
+                    'subKategori',
+                    fn ($sq) => $sq->where(
+                        'kategori_dokumen_id',
+                        $this->selectedKategori
+                    )
+                )
+            )
+            ->when(
+                $this->selectedSubKategori,
+                fn ($q) => $q->where(
+                    'sub_kategori_dokumen_id',
+                    $this->selectedSubKategori
+                )
+            );
     }
 
+    /* =====================================================
+     *  COLUMNS
+     * ===================================================== */
     protected function getTableColumns(): array
     {
         return [
-            Tables\Columns\TextColumn::make('kode_dokumen')->searchable(),
-            Tables\Columns\TextColumn::make('nama_dokumen')->label('Judul')->searchable(),
-            Tables\Columns\TextColumn::make('subKategori.nama_sub_kategori')->label('Jenis'),
-            Tables\Columns\TextColumn::make('student.nama')->label('Siswa'),
-            Tables\Columns\TextColumn::make('pegawai.nama')->label('Pegawai'),
-            Tables\Columns\TextColumn::make('created_at')->date(),
+            Tables\Columns\TextColumn::make('kode_dokumen')
+                ->searchable()
+                ->sortable(),
+
+            Tables\Columns\TextColumn::make('nama_dokumen')
+                ->searchable()
+                ->sortable(),
+
+            Tables\Columns\TextColumn::make('subKategori.nama_sub_kategori')
+                ->label('Jenis'),
+
+            Tables\Columns\TextColumn::make('created_at')
+                ->label('Tanggal')
+                ->date(),
         ];
     }
 
-    protected function getTableActions(): array
-    {
-        return [
-            Tables\Actions\ViewAction::make(),
-            Tables\Actions\EditAction::make(),
-        ];
-    }
+    /* =====================================================
+     *  ROW ACTIONS (VIEW / EDIT / DOWNLOAD)
+     * ===================================================== */
+protected function getTableActions(): array
+{
+    return [
+        /**
+         * ================= EDIT (SEBAGAI VIEW)
+         */
+        Tables\Actions\EditAction::make()
+            ->label('Detail / Edit')
+            ->url(fn (Document $record) =>
+                DocumentResource::getUrl('edit', ['record' => $record])
+            ),
 
+        /**
+         * ================= DOWNLOAD
+         */
+        Tables\Actions\Action::make('download')
+            ->label('Download')
+            ->icon('heroicon-o-arrow-down-tray')
+            ->url(fn (Document $record) =>
+                route('documents.download', $record)
+            )
+            ->openUrlInNewTab()
+            ->visible(fn (Document $record) =>
+                filled($record->file_path)
+            ),
+    ];
+}
+
+    /* =====================================================
+     *  HEADER ACTION — CREATE (UPLOAD ARSIP)
+     * ===================================================== */
     protected function getTableHeaderActions(): array
     {
         return [
             Tables\Actions\CreateAction::make()
                 ->label('Upload Arsip')
-                ->form([
-                    Forms\Components\TextInput::make('kode_dokumen')->required(),
-                    Forms\Components\Select::make('sub_kategori_dokumen_id')
-                        ->label('Jenis Dokumen')
-                        ->options(fn () => SubKategoriDokumen::when($this->selectedKategori, fn ($q) => $q->where('kategori_dokumen_id', $this->selectedKategori))->pluck('nama_sub_kategori', 'id')->toArray())
-                        ->default(fn () => $this->selectedSubKategori)
-                        ->reactive()
-                        ->required(),
+                ->model(Document::class)
 
-                    Forms\Components\Select::make('student_id')
-                        ->relationship('student', 'nama')
-                        ->searchable()
-                        ->visible(fn ($get) => optional(SubKategoriDokumen::find($get('sub_kategori_dokumen_id')))->butuh_student),
+                /**
+                 * FORM = 1 SUMBER KEBENARAN
+                 */
+                ->form(
+                    DocumentResource::documentFormSchema()
+                )
 
-                    Forms\Components\Select::make('pegawai_id')
-                        ->relationship('pegawai', 'nama')
-                        ->searchable()
-                        ->visible(fn ($get) => optional(SubKategoriDokumen::find($get('sub_kategori_dokumen_id')))->butuh_pegawai),
+                /**
+                 * PREFILL SAAT MODAL DIBUKA
+                 */
+                ->mountUsing(function (Forms\ComponentContainer $form) {
+                    if ($this->selectedSubKategori) {
+                        $form->fill([
+                            'sub_kategori_dokumen_id' => $this->selectedSubKategori,
+                        ]);
+                    }
+                })
 
-                    Forms\Components\Select::make('pkl_id')
-                        ->relationship('pkl', 'id')
-                        ->visible(fn ($get) => optional(SubKategoriDokumen::find($get('sub_kategori_dokumen_id')))->butuh_pkl),
+                /**
+                 * MUTATE DATA SAAT SUBMIT
+                 */
+                ->mutateFormDataUsing(function (array $data) {
 
-                    Forms\Components\Select::make('tahun')
-                        ->label('Tahun')
-                        ->options(fn () => TahunAjaran::pluck('tahun', 'tahun')->toArray()),
-
-                    Forms\Components\TextInput::make('judul')->required(),
-                    Forms\Components\DatePicker::make('tanggal_dokumen')->required(),
-                    Forms\Components\FileUpload::make('file_path')
-                    ->label('File Dokumen (PDF)')
-                    ->disk('local')
-                    ->directory('arsip-dokumen')
-                    ->acceptedFileTypes([
-                        'application/pdf',
-                        'application/x-pdf',
-                        'application/octet-stream',
-                    ])
-                    ->rules([
-                        'required',
-                        'file',
-                        'mimes:pdf',
-                        'max:20480', // 20MB
-                    ])
-                    ->required()
-                ,
-                    Forms\Components\Textarea::make('keterangan')->columnSpanFull(),
-                ])
-                ->action(function (array $data) {
-                    if (! empty($data['sub_kategori_dokumen_id'])) {
-                        $sub = SubKategoriDokumen::find($data['sub_kategori_dokumen_id']);
-                        if ($sub) {
-                            $data['kategori_dokumen_id'] = $sub->kategori_dokumen_id;
-                        }
+                    // Lock sub kategori dari context
+                    if ($this->selectedSubKategori) {
+                        $data['sub_kategori_dokumen_id'] = $this->selectedSubKategori;
                     }
 
-                    Document::create($data);
+                    // Set kategori otomatis
+                    if (!empty($data['sub_kategori_dokumen_id'])) {
+                        $sub = SubKategoriDokumen::with('kategori')
+                            ->find($data['sub_kategori_dokumen_id']);
 
-                    Notification::make()->success()->title('Arsip berhasil diunggah')->send();
+                        $data['kategori_dokumen_id'] = $sub?->kategori?->id;
+                    }
+
+                    // Default value
+                    $data['status_dokumen'] ??= 'aktif';
+                    $data['tingkat_kerahasiaan'] ??= 'publik';
+                    $data['created_by'] = auth()->id();
+
+                    return $data;
+                })
+
+                /**
+                 * NOTIFICATION
+                 */
+                ->after(function () {
+                    Notification::make()
+                        ->success()
+                        ->title('Arsip berhasil diunggah')
+                        ->send();
                 }),
         ];
     }

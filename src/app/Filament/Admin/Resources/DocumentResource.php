@@ -8,7 +8,6 @@ use App\Models\Document;
 use App\Models\KategoriDokumen;
 use App\Models\SubKategoriDokumen;
 use App\Models\TahunAjaran;
-use App\Models\UnitKerja;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -25,40 +24,97 @@ class DocumentResource extends Resource
     protected static ?int $navigationSort = 3;
     protected static ?string $cluster = ManajemenDokumenCluster::class;
 
-    public static function form(Form $form): Form
+    /**
+     * =====================================================
+     *  SATU-SATUNYA SUMBER FORM DOCUMENT
+     * =====================================================
+     */
+    public static function documentFormSchema(): array
     {
-        return $form->schema([
-            // INFORMASI DOKUMEN
+        return [
+
+            // ================= INFORMASI DOKUMEN =================
             Forms\Components\Section::make('Informasi Dokumen')
                 ->schema([
-                    Forms\Components\Select::make('sub_kategori_dokumen_id')
-                        ->label('Jenis Dokumen')
-                        ->relationship('subKategori', 'nama_sub_kategori')
-                        ->reactive()
-                        ->required()
-                        ->afterStateUpdated(function ($set, $state) {
-                            $subKategori = SubKategoriDokumen::with('kategori')->find($state);
+Forms\Components\Select::make('sub_kategori_dokumen_id')
+    ->label('Jenis Dokumen')
+    ->relationship('subKategori', 'nama_sub_kategori')
+    ->reactive()
+    ->required()
+    ->disabled(fn () => request()->has('selectedSubKategori'))
 
-                            // Set kategori_dokumen_id otomatis (use ID, not name)
-                            $set('kategori_dokumen_id', $subKategori?->kategori?->id);
+    /**
+     * =================================================
+     *  JALAN SAAT FORM DI-FILL (ARSIP)
+     * =================================================
+     */
+    ->afterStateHydrated(function ($state, callable $set) {
+        if (!$state) {
+            return;
+        }
 
-                            // Generate kode dokumen otomatis
-                            $last = Document::latest('id')->first();
-                            $number = $last ? intval(substr($last->kode_dokumen, strrpos($last->kode_dokumen, '-') + 1)) + 1 : 1;
-                            $prefix = $subKategori?->kode_prefix ?? 'DOC';
-                            $kode = $prefix . '-' . str_pad($number, 5, '0', STR_PAD_LEFT);
-                            $set('kode_dokumen', $kode);
+        $subKategori = SubKategoriDokumen::with('kategori')->find($state);
 
-                            // Generate nama dokumen otomatis
-                            $set('nama_dokumen', ($subKategori?->nama_sub_kategori ?? 'Dokumen') . ' - ' . $kode);
-                        }),
+        if (!$subKategori) {
+            return;
+        }
+
+        // kategori otomatis
+        $set('kategori_dokumen_id', $subKategori->kategori?->id);
+
+        // generate kode dokumen
+        $last = Document::latest('id')->first();
+        $number = $last
+            ? intval(substr($last->kode_dokumen, strrpos($last->kode_dokumen, '-') + 1)) + 1
+            : 1;
+
+        $prefix = $subKategori->kode_prefix ?? 'DOC';
+        $kode = $prefix . '-' . str_pad($number, 5, '0', STR_PAD_LEFT);
+
+        $set('kode_dokumen', $kode);
+        $set('nama_dokumen', $subKategori->nama_sub_kategori . ' - ' . $kode);
+    })
+
+    /**
+     * =================================================
+     *  JALAN SAAT USER GANTI MANUAL
+     * =================================================
+     */
+    ->afterStateUpdated(function ($set, $state) {
+        if (!$state) {
+            return;
+        }
+
+        $subKategori = SubKategoriDokumen::with('kategori')->find($state);
+
+        if (!$subKategori) {
+            return;
+        }
+
+        // kategori otomatis
+        $set('kategori_dokumen_id', $subKategori->kategori?->id);
+
+        // generate kode dokumen
+        $last = Document::latest('id')->first();
+        $number = $last
+            ? intval(substr($last->kode_dokumen, strrpos($last->kode_dokumen, '-') + 1)) + 1
+            : 1;
+
+        $prefix = $subKategori->kode_prefix ?? 'DOC';
+        $kode = $prefix . '-' . str_pad($number, 5, '0', STR_PAD_LEFT);
+
+        $set('kode_dokumen', $kode);
+        $set('nama_dokumen', $subKategori->nama_sub_kategori . ' - ' . $kode);
+    }),
+
 
                     Forms\Components\Select::make('kategori_dokumen_id')
                         ->label('Kategori Dokumen')
-                        ->options(function () {
-                            return \App\Models\KategoriDokumen::pluck('nama_kategori', 'id')->toArray();
-                        })
+                        ->options(
+                            KategoriDokumen::pluck('nama_kategori', 'id')->toArray()
+                        )
                         ->required()
+                        ->dehydrated(true)
                         ->disabled(),
 
                     Forms\Components\TextInput::make('kode_dokumen')
@@ -70,9 +126,10 @@ class DocumentResource extends Resource
                         ->label('Nama Dokumen')
                         ->required()
                         ->readOnly(),
-                ])->columns(2),
+                ])
+                ->columns(2),
 
-            // RELASI
+            // ================= RELASI =================
             Forms\Components\Section::make('Relasi Dokumen')
                 ->schema([
                     Forms\Components\Select::make('unit_kerja_id')
@@ -83,51 +140,76 @@ class DocumentResource extends Resource
                     Forms\Components\Select::make('student_id')
                         ->relationship('student', 'nama')
                         ->searchable()
-                        ->visible(fn ($get) => optional(SubKategoriDokumen::find($get('sub_kategori_dokumen_id')))->butuh_student),
+                        ->visible(fn ($get) =>
+                            optional(SubKategoriDokumen::find($get('sub_kategori_dokumen_id')))
+                                ->butuh_student
+                        ),
 
                     Forms\Components\Select::make('pegawai_id')
                         ->relationship('pegawai', 'nama')
                         ->searchable()
-                        ->visible(fn ($get) => optional(SubKategoriDokumen::find($get('sub_kategori_dokumen_id')))->butuh_pegawai),
+                        ->visible(fn ($get) =>
+                            optional(SubKategoriDokumen::find($get('sub_kategori_dokumen_id')))
+                                ->butuh_pegawai
+                        ),
 
                     Forms\Components\Select::make('pkl_id')
                         ->relationship('pkl', 'id')
-                        ->visible(fn ($get) => optional(SubKategoriDokumen::find($get('sub_kategori_dokumen_id')))->butuh_pkl),
+                        ->visible(fn ($get) =>
+                            optional(SubKategoriDokumen::find($get('sub_kategori_dokumen_id')))
+                                ->butuh_pkl
+                        ),
 
                     Forms\Components\Select::make('tahun')
                         ->label('Tahun')
                         ->options(TahunAjaran::pluck('tahun', 'tahun')->toArray()),
-                ])->columns(2),
+                ])
+                ->columns(2),
 
-    // FILE ARSIP
-    Forms\Components\Section::make('File Arsip')
-        ->schema([
-            Forms\Components\DatePicker::make('tanggal_dokumen')
-                ->required(),
+            // ================= FILE ARSIP =================
+            Forms\Components\Section::make('File Arsip')
+                ->schema([
+                    Forms\Components\DatePicker::make('tanggal_dokumen')
+                        ->required(),
 
-            Forms\Components\DatePicker::make('expires_at')
-                ->label('Tanggal Kadaluarsa (Opsional)')
-                ->helperText('Jika diisi, file akan di-prune ketika melewati tanggal ini.'),
+                    Forms\Components\DatePicker::make('expires_at')
+                        ->label('Tanggal Kadaluarsa (Opsional)')
+                        ->helperText('Jika diisi, file akan di-prune ketika melewati tanggal ini.'),
 
-            Forms\Components\FileUpload::make('file_path')
-                ->label('File Dokumen')
-                ->directory('arsip-dokumen')
-                ->disk('local')
-                ->acceptedFileTypes(['application/pdf'])
-                ->rules(['mimes:pdf'])
-                ->required()
-                ->enableOpen()
-                ->enableDownload(),
+                    Forms\Components\FileUpload::make('file_path')
+                        ->label('File Dokumen')
+                        ->directory('arsip-dokumen')
+                        ->disk('local')
+                        ->acceptedFileTypes(['application/pdf'])
+                        ->rules(['mimes:pdf'])
+                        ->required()
+                        ->enableOpen()
+                        ->enableDownload(),
 
-            Forms\Components\Hidden::make('status_dokumen')
-                ->default('aktif'),
+                    Forms\Components\Hidden::make('status_dokumen')
+                        ->default('aktif'),
 
-            Forms\Components\Hidden::make('tingkat_kerahasiaan')
-                ->default('publik'),
-        ]),
-]);
+                    Forms\Components\Hidden::make('tingkat_kerahasiaan')
+                        ->default('publik'),
+                ]),
+        ];
     }
 
+    /**
+     * =====================================================
+     *  FORM RESOURCE (CREATE & EDIT)
+     * =====================================================
+     */
+    public static function form(Form $form): Form
+    {
+        return $form->schema(self::documentFormSchema());
+    }
+
+    /**
+     * =====================================================
+     *  TABLE
+     * =====================================================
+     */
     public static function table(Table $table): Table
     {
         return $table
@@ -154,12 +236,17 @@ class DocumentResource extends Resource
             ]);
     }
 
+    /**
+     * =====================================================
+     *  PAGES
+     * =====================================================
+     */
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ListDocuments::route('/'),
+            'index'  => Pages\ListDocuments::route('/'),
             'create' => Pages\CreateDocument::route('/create'),
-            'edit' => Pages\EditDocument::route('/{record}/edit'),
+            'edit'   => Pages\EditDocument::route('/{record}/edit'),
         ];
     }
 }
