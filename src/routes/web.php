@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use Livewire\Livewire;
 use App\Models\Document;
+use Illuminate\Support\Facades\Storage;
 
 /* NOTE: Do Not Remove
 / Livewire asset handling if using sub folder in domain
@@ -34,25 +35,29 @@ Route::middleware(['auth'])->group(function () {
     /**
      * ================= DOWNLOAD (SUDAH ADA)
      */
-    Route::get(
-        '/admin/documents/{document}/download',
-        \App\Http\Controllers\DocumentDownloadController::class
-    )->name('documents.download');
+Route::get('/admin/documents/{document}/preview', function (Document $document) {
 
-    /**
-     * ================= PREVIEW (BARU)
-     */
-    Route::get('/admin/documents/{document}/preview', function (Document $document) {
+    abort_unless(auth()->check(), 403);
 
-        abort_unless(auth()->check(), 403);
+    // VALIDASI DATA MINIMAL
+    if (! $document->disk || ! $document->file_path) {
+        abort(404, 'Metadata file tidak lengkap');
+    }
 
-        return response()->file(
-            storage_path('app/' . $document->file_path),
-            [
-                'Content-Type'        => $document->mime_type,
-                'Content-Disposition'=> 'inline; filename="' . basename($document->file_path) . '"',
-                'X-Frame-Options'     => 'SAMEORIGIN',
-            ]
-        );
-    })->name('documents.preview');
+    // GUNAKAN DISK DARI DATABASE
+    $disk = Storage::disk($document->disk);
+
+    if (! $disk->exists($document->file_path)) {
+        abort(404, 'File tidak ditemukan');
+    }
+
+    return response()->file(
+        $disk->path($document->file_path),
+        [
+            'Content-Type'        => $document->mime_type ?? 'application/pdf',
+            'Content-Disposition'=> 'inline',
+            'X-Frame-Options'     => 'SAMEORIGIN',
+        ]
+    );
+})->name('documents.preview');
 });
