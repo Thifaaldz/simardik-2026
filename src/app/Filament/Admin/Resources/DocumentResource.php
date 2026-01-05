@@ -246,6 +246,7 @@ Forms\Components\Select::make('sub_kategori_dokumen_id')
         return [
             'index'  => Pages\ListDocuments::route('/'),
             'create' => Pages\CreateDocument::route('/create'),
+            'view'   => Pages\ViewDocument::route('/{record}'),
             'edit'   => Pages\EditDocument::route('/{record}/edit'),
         ];
     }

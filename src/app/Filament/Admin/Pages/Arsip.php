@@ -115,16 +115,27 @@ protected function getTableActions(): array
 {
     return [
         /**
-         * ================= EDIT (SEBAGAI VIEW)
+         * ================= VIEW =================
          */
-        Tables\Actions\EditAction::make()
-            ->label('Detail / Edit')
+        Tables\Actions\Action::make('view')
+            ->label('Lihat')
+            ->icon('heroicon-o-eye')
+            ->url(fn (Document $record) =>
+                DocumentResource::getUrl('view', ['record' => $record])
+            ),
+
+        /**
+         * ================= EDIT =================
+         */
+        Tables\Actions\Action::make('edit')
+            ->label('Edit')
+            ->icon('heroicon-o-pencil-square')
             ->url(fn (Document $record) =>
                 DocumentResource::getUrl('edit', ['record' => $record])
             ),
 
         /**
-         * ================= DOWNLOAD
+         * ================= DOWNLOAD =================
          */
         Tables\Actions\Action::make('download')
             ->label('Download')
@@ -138,6 +149,7 @@ protected function getTableActions(): array
             ),
     ];
 }
+
 
     /* =====================================================
      *  HEADER ACTION — CREATE (UPLOAD ARSIP)
