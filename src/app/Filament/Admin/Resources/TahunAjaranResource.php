@@ -1,4 +1,4 @@
-<?php
+d<?php
 
 namespace App\Filament\Admin\Resources;
 
@@ -9,6 +9,7 @@ use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Filament\Forms\Components\Select;
 
 class TahunAjaranResource extends Resource
 {
@@ -24,24 +25,20 @@ class TahunAjaranResource extends Resource
         return $form->schema([
             Forms\Components\Section::make('Tahun Ajaran')
                 ->schema([
-                    Forms\Components\TextInput::make('nama_tahun')
-                        ->label('Nama Tahun Ajaran')
+                    Forms\Components\TextInput::make('tahun')
+                        ->label('Tahun Ajaran')
                         ->placeholder('2024 / 2025')
                         ->required()
                         ->unique(ignoreRecord: true),
 
-                    Forms\Components\DatePicker::make('tanggal_mulai')
-                        ->label('Tanggal Mulai')
-                        ->required(),
-
-                    Forms\Components\DatePicker::make('tanggal_selesai')
-                        ->label('Tanggal Selesai')
-                        ->required(),
-
-                    Forms\Components\Toggle::make('is_aktif')
-                        ->label('Aktif')
-                        ->helperText('Tandai satu tahun ajaran aktif')
-                        ->default(false),
+                    Select::make('status')
+                        ->label('Status')
+                        ->options([
+                            'aktif' => 'Aktif',
+                            'nonaktif' => 'Nonaktif',
+                        ])
+                        ->required()
+                        ->default('nonaktif'),
                 ])
                 ->columns(2),
         ]);
@@ -51,25 +48,22 @@ class TahunAjaranResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('nama_tahun')
+                Tables\Columns\TextColumn::make('tahun')
                     ->label('Tahun Ajaran')
                     ->searchable()
                     ->sortable(),
 
-                Tables\Columns\TextColumn::make('tanggal_mulai')
-                    ->label('Mulai')
-                    ->date(),
-
-                Tables\Columns\TextColumn::make('tanggal_selesai')
-                    ->label('Selesai')
-                    ->date(),
-
-                Tables\Columns\IconColumn::make('is_aktif')
-                    ->label('Aktif')
-                    ->boolean(),
+                Tables\Columns\BadgeColumn::make('status')
+                    ->label('Status')
+                    ->colors([
+                        'success' => 'aktif',
+                        'danger' => 'nonaktif',
+                    ])
+                    ->formatStateUsing(fn (string $state): string => ucfirst($state)),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
+                Tables\Actions\DeleteAction::make(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
@@ -87,3 +81,4 @@ class TahunAjaranResource extends Resource
         ];
     }
 }
+
