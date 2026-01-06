@@ -20,7 +20,6 @@ use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
-use Joaopaulolndev\FilamentEditProfile\Pages\EditProfilePage;
 
 class AdminPanelProvider extends PanelProvider
 {
@@ -33,7 +32,7 @@ class AdminPanelProvider extends PanelProvider
             ->spa()
             ->login()
             ->passwordReset()
-            ->profile(\App\Filament\Pages\Auth\EditProfile::class, isSimple: false)
+            ->profile()
             ->defaultThemeMode(ThemeMode::Light)
             ->font('Montserrat')
             ->colors([
@@ -58,11 +57,8 @@ class AdminPanelProvider extends PanelProvider
             ->userMenuItems([
                 'profile' => MenuItem::make()
                     ->label(fn () => auth()->user()->name)
-                    ->url(fn (): string => EditProfilePage::getUrl())
+                    ->url(fn (): string => \Joaopaulolndev\FilamentEditProfile\Pages\EditProfilePage::getUrl())
                     ->icon('heroicon-m-user-circle'),
-                // 'profile' => \Filament\Navigation\MenuItem::make()
-                //     ->label(fn () => auth()->user()->name)
-                //     ->icon('heroicon-m-user-circle'),
             ])
             ->plugins([
                 \BezhanSalleh\FilamentShield\FilamentShieldPlugin::make()
@@ -86,7 +82,7 @@ class AdminPanelProvider extends PanelProvider
                     ->formPanelPosition('right')
                     ->formPanelWidth('40%')
                     ->emptyPanelBackgroundImageOpacity('70%')
-                    ->emptyPanelBackgroundImageUrl('https://picsum.photos/seed/picsum/1260/750.webp/?blur=1'),
+                    ->emptyPanelBackgroundImageUrl(asset('images/login-bg.jpg')),
                 \Awcodes\LightSwitch\LightSwitchPlugin::make()
                     ->position(\Awcodes\LightSwitch\Enums\Alignment::BottomCenter)
                     ->enabledOn([
