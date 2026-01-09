@@ -56,7 +56,7 @@ class StudentResource extends Resource
                         ->searchable(),
 
                     Forms\Components\Select::make('tahun_ajaran_id')
-                        ->relationship('tahunAjaran', 'nama_tahun')
+                        ->relationship('tahunAjaran', 'tahun')
                         ->required(),
 
                     Forms\Components\TextInput::make('angkatan')
@@ -90,7 +90,7 @@ class StudentResource extends Resource
                 Tables\Columns\TextColumn::make('kelas.nama_kelas')
                     ->label('Kelas'),
 
-                Tables\Columns\TextColumn::make('tahunAjaran.nama_tahun')
+                Tables\Columns\TextColumn::make('tahunAjaran.tahun')
                     ->label('Tahun Ajaran'),
             ])
             ->filters([
